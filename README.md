@@ -9,6 +9,7 @@
 [![ComfyUI](https://img.shields.io/badge/ComfyUI-SD1.5%20%2B%20ControlNet%20%2B%20IP--Adapter-1f6feb)](https://github.com/comfyanonymous/ComfyUI)
 [![Ollama](https://img.shields.io/badge/LLM-Qwen%20via%20Ollama-black?logo=ollama)](https://ollama.com/)
 [![MCP](https://img.shields.io/badge/Claude%20Desktop-MCP-D97757)](https://modelcontextprotocol.io/)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Leviathan3311/convert2D-sketch/blob/main/colab/comfyui_worker.ipynb)
 
 <img src="docs/assets/sketch-to-character.png" alt="Paper sketch to transparent chibi characters" width="100%">
@@ -279,6 +280,6 @@ docs/               Architecture BRD, Vietnamese guide, README assets
 
 ## 📄 License
 
-No license has been chosen yet; all rights reserved by the author until one is added.
+Released under the [Apache License 2.0](LICENSE). Copyright © 2026 Leviathan3311.
 
 Third-party models keep their own licenses (Stable Diffusion / DreamShaper, ControlNet, IP-Adapter, Qwen, rembg).
