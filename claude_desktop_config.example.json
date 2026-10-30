@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "sketch-studio": {
+      "command": "/absolute/path/to/uv",
+      "args": ["run", "--directory", "/absolute/path/to/convert2D-sketch", "studio-mcp"]
+    }
+  }
+}

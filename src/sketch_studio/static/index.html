@@ -1,0 +1,817 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sketch-to-2D Studio</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xyflow/react@12.3.6/dist/style.css" />
+<style>
+  :root {
+    --bg: #f6f5f2; --panel: #ffffff; --ink: #1d1d1f; --muted: #6b6b70; --line: #e3e1dc;
+    --accent: #3b5bdb; --accent-ink: #fff; --ok: #2b8a3e; --err: #c92a2a; --warn: #b7791f;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--ink); }
+  a { color: var(--accent); text-decoration: none; }
+  header.top { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  header.top h1 { font-size: 16px; margin: 0; font-weight: 650; }
+  header.top .sub { color: var(--muted); font-size: 13px; }
+  button, select, input, textarea { font: inherit; }
+  button { border: 1px solid var(--line); background: var(--panel); border-radius: 6px; padding: 5px 10px; cursor: pointer; color: var(--ink); }
+  button:hover { border-color: #c9c6bf; }
+  button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  button.danger { color: var(--err); }
+  .wrap { max-width: 1200px; margin: 0 auto; padding: 16px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .card img { width: 100%; aspect-ratio: 4/3; object-fit: cover; display: block; background: #eee; }
+  .card .meta { padding: 8px 10px; }
+  .badge { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 99px; background: #eef0ff; color: var(--accent); margin-right: 4px; }
+  .badge.done { background: #e6f4ea; color: var(--ok); } .badge.error { background: #fdecec; color: var(--err); }
+  .badge.running, .badge.collecting { background: #fff4e0; color: var(--warn); }
+  .muted { color: var(--muted); }
+  .empty { padding: 40px; text-align: center; color: var(--muted); background: var(--panel); border: 1px dashed var(--line); border-radius: 10px; }
+  code { background: #efede8; padding: 1px 5px; border-radius: 4px; font-size: 12.5px; }
+
+  /* mind map editor */
+  .editor { display: grid; grid-template-columns: 1fr 300px; height: calc(100vh - 53px); }
+  .canvas { position: relative; }
+  .toolbar { position: absolute; z-index: 5; top: 10px; left: 10px; display: flex; flex-wrap: wrap; gap: 6px; background: var(--panel); padding: 6px; border-radius: 8px; border: 1px solid var(--line); box-shadow: 0 2px 8px rgba(0,0,0,.05); }
+  .toolbar .status { align-self: center; padding: 0 6px; color: var(--muted); font-size: 12.5px; }
+  aside.side { border-left: 1px solid var(--line); background: var(--panel); padding: 14px; overflow-y: auto; }
+  aside.side h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 18px 0 8px; }
+  aside.side h3:first-child { margin-top: 0; }
+  aside.side label { display: block; font-size: 12.5px; color: var(--muted); margin: 8px 0 3px; }
+  aside.side textarea, aside.side input[type=text], aside.side select { width: 100%; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: #fff; }
+  aside.side ul { padding-left: 18px; margin: 0; }
+  aside.side li { margin-bottom: 6px; }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+
+  .shape { position: relative; display: flex; align-items: center; justify-content: center; text-align: center; }
+  .shape svg { position: absolute; inset: 0; overflow: visible; }
+  .shape .label { position: relative; padding: 8px 14px; font-size: 14px; font-weight: 550; white-space: pre-wrap; word-break: break-word; color: #1d1d1f; }
+  .shape.triangle .label { padding: 38% 22% 4%; font-size: 13px; }
+  .shape.diamond .label { padding: 10px 26%; font-size: 13px; }
+  .shape .icon { position: absolute; width: 64px; height: 64px; right: -34px; top: -34px; mix-blend-mode: multiply; pointer-events: none; }
+  .react-flow__node.selected .shape svg path, .react-flow__node.selected .shape svg ellipse, .react-flow__node.selected .shape svg rect { stroke: var(--accent); stroke-width: 3; }
+  .react-flow__handle.src { width: 9px; height: 9px; background: var(--accent); opacity: 0; transition: opacity .15s; }
+  .react-flow__node:hover .react-flow__handle.src { opacity: 1; }
+  .react-flow__handle.tgt { opacity: 0; width: 1px; height: 1px; min-width: 0; min-height: 0; border: 0; }
+  .edge-label { position: absolute; background: #fff; border: 1px solid var(--line); padding: 1px 6px; border-radius: 4px; font-size: 12px; pointer-events: all; }
+
+  /* character */
+  .cols { display: grid; grid-template-columns: 300px 1fr; gap: 18px; align-items: start; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; margin-bottom: 14px; }
+  .panel h2 { font-size: 15px; margin: 0 0 10px; }
+  .sketches { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+  .sketches img { width: 100%; border-radius: 6px; border: 1px solid var(--line); background: #fff; }
+  .chips span { display: inline-block; background: #f1efe9; border-radius: 99px; padding: 2px 9px; margin: 0 4px 4px 0; font-size: 12.5px; }
+  .assets { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+  .asset { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: repeating-conic-gradient(#eee 0 25%, #fff 0 50%) 0 0/16px 16px; }
+  .asset img { width: 100%; display: block; cursor: zoom-in; }
+  .asset .meta { background: var(--panel); padding: 6px 8px; font-size: 12px; display: flex; justify-content: space-between; align-items: center; gap: 4px; }
+  .lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.8); display: flex; align-items: center; justify-content: center; z-index: 50; cursor: zoom-out; }
+  .lightbox img { max-width: 92vw; max-height: 92vh; background: #fff; }
+  .tabs { display: flex; gap: 4px; }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .note { margin: 8px 0 0; font-size: 13px; color: var(--muted); } .err { color: var(--err); }
+  .small { font-size: 12px; }
+  .drop { border: 2px dashed #c9c6bf; border-radius: 12px; background: var(--panel); padding: 28px; text-align: center; cursor: pointer; margin-bottom: 18px; }
+  .drop.over { border-color: var(--accent); background: #eef0ff; }
+  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: flex; align-items: center; justify-content: center; z-index: 60; padding: 16px; }
+  .modal { background: var(--panel); border-radius: 12px; padding: 18px; width: min(520px, 100%); }
+  .modal h2 { margin: 0 0 8px; font-size: 16px; }
+  .modal label, .panel label { display: block; font-size: 12.5px; color: var(--muted); margin: 10px 0 3px; }
+  .modal input[type=text], .panel input[type=text], .panel select { width: 100%; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: #fff; }
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0 10px; }
+  .form-grid label select { margin-top: 3px; }
+  .panel input[type=range] { width: 100%; }
+  .chips-btn { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chips-btn button { font-size: 12.5px; text-align: left; border-radius: 14px; background: #f6f5f2; }
+  .chips-btn button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  button:disabled { opacity: .5; cursor: default; }
+  a.btn { border: 1px solid var(--line); border-radius: 6px; padding: 5px 10px; color: var(--ink); }
+  .asset.sel { outline: 3px solid var(--accent); }
+  .facelock { margin-top: 8px; padding: 8px 10px; background: #f6f5f2; border-radius: 8px; }
+  .facelock label.check { margin-top: 0; }
+  label.check { display: inline-flex; align-items: center; gap: 6px; color: var(--ink); font-size: 13px; margin: 10px 12px 0 0; }
+  .sub-h { font-size: 14px; margin: 18px 0 6px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .emo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 4px; }
+  .emo { display: flex !important; align-items: center; gap: 5px; margin: 0 !important; padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px; color: var(--ink) !important; font-size: 12.5px !important; cursor: pointer; }
+  .emo.on { border-color: var(--accent); background: #eef0ff; }
+  a.btn.small { font-size: 12px; padding: 2px 8px; font-weight: 400; }
+  .sel-thumb { width: 100%; max-height: 220px; object-fit: contain; background: #fff; border-radius: 6px; border: 1px solid var(--line); }
+  @media (max-width: 800px) {
+    .editor { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
+    aside.side { border-left: 0; border-top: 1px solid var(--line); max-height: 40vh; }
+    .cols { grid-template-columns: 1fr; }
+  }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@18.3.1",
+    "react/jsx-runtime": "https://esm.sh/react@18.3.1/jsx-runtime",
+    "react-dom": "https://esm.sh/react-dom@18.3.1",
+    "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
+    "@xyflow/react": "https://esm.sh/@xyflow/react@12.3.6?external=react,react-dom",
+    "htm": "https://esm.sh/htm@3.1.1",
+    "@dagrejs/dagre": "https://esm.sh/@dagrejs/dagre@1.1.4",
+    "html-to-image": "https://esm.sh/html-to-image@1.11.11"
+  }
+}
+</script>
+</head>
+<body>
+<div id="root"></div>
+<script type="module">
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { createRoot } from "react-dom/client";
+import htm from "htm";
+import {
+  ReactFlow, ReactFlowProvider, Background, Controls, MiniMap, Handle, Position, BaseEdge, EdgeLabelRenderer,
+  MarkerType, ConnectionMode, useNodesState, useEdgesState, useInternalNode, useReactFlow, getStraightPath,
+  getNodesBounds, getViewportForBounds, addEdge,
+} from "@xyflow/react";
+import dagre from "@dagrejs/dagre";
+import { toPng, toSvg } from "html-to-image";
+
+const html = htm.bind(React.createElement);
+const api = (path, opts) => fetch(path, opts).then(async (r) => {
+  if (!r.ok) {
+    const text = await r.text();
+    let msg = text;
+    try { const d = JSON.parse(text).detail; msg = typeof d === "string" ? d : JSON.stringify(d); } catch {}
+    throw new Error(msg || r.statusText);
+  }
+  return r.json();
+});
+const post = (path, body) => api(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) });
+
+// Wraps an async action with a busy flag + error message for the UI.
+function useAction() {
+  const [busy, setBusy] = useState(null);
+  const [error, setError] = useState(null);
+  const run = async (label, fn) => {
+    setBusy(label); setError(null);
+    try { return await fn(); } catch (e) { setError(e.message); } finally { setBusy(null); }
+  };
+  return { busy, error, run, setError };
+}
+const Busy = ({ busy, error }) => html`${busy && html`<p class="note">⏳ ${busy}</p>`}${error && html`<p class="note err">⚠️ ${error}</p>`}`;
+const fmtTime = (iso) => iso ? new Date(iso).toLocaleString("vi-VN") : "";
+const TYPE_VI = { mindmap_2d: "Mind map", character_2d: "Nhân vật 2D", hybrid_sketchnote: "Sketchnote" };
+
+/* ---------------- routing ---------------- */
+function useHash() {
+  const [hash, setHash] = useState(location.hash);
+  useEffect(() => { const f = () => setHash(location.hash); addEventListener("hashchange", f); return () => removeEventListener("hashchange", f); }, []);
+  return hash;
+}
+
+function App() {
+  const hash = useHash();
+  const m = hash.match(/^#\/p\/([\w-]+)/);
+  return m ? html`<${ProjectPage} pid=${m[1]} />` : html`<${Home} />`;
+}
+
+/* ---------------- settings ---------------- */
+function SettingsDialog({ onClose }) {
+  const [s, setS] = useState(null);
+  const act = useAction();
+  useEffect(() => { api("/api/settings").then(setS).catch((e) => act.setError(e.message)); }, []);
+  const save = () => act.run("Đang kiểm tra kết nối…", async () => setS(await api("/api/settings", {
+    method: "PUT", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ comfy_url: s.comfy_url, llm_url: s.llm_url, llm_model: s.llm_model }),
+  })));
+  const state = (x) => !x ? "" : x.error ? "❌ " + x.error : "✅ OK";
+  return html`<div class="modal-bg" onClick=${onClose}><div class="modal" onClick=${(e) => e.stopPropagation()}>
+    <h2>Cài đặt kết nối Colab</h2>
+    ${!s ? html`<p class="muted">Đang tải…</p>` : html`
+      <label>COMFY_URL (vẽ ảnh)</label>
+      <input type="text" placeholder="https://xxxx.trycloudflare.com" value=${s.comfy_url} onInput=${(e) => setS({ ...s, comfy_url: e.target.value })} />
+      <div class="muted small">${state(s.comfy)} ${s.comfy?.devices ? s.comfy.devices.join(", ") : ""}
+        ${s.comfy?.missing_models?.length ? " — thiếu model: " + s.comfy.missing_models.join(", ") : ""}
+        ${s.comfy && !s.comfy.error ? (s.comfy.face_lock ? " · 🔒 khoá mặt: có" : " · 🔒 khoá mặt: chưa có (chạy notebook mới)") : ""}</div>
+      <label>LLM_URL (Ollama — đọc ảnh, gợi ý)</label>
+      <input type="text" placeholder="https://yyyy.trycloudflare.com" value=${s.llm_url} onInput=${(e) => setS({ ...s, llm_url: e.target.value })} />
+      <div class="muted small">${state(s.llm)} ${s.llm?.models ? s.llm.models.join(", ") : ""}</div>
+      <label>Model (để trống = model đầu tiên Ollama có)</label>
+      <input type="text" placeholder="qwen3.8:27b-q4_K_M" value=${s.llm_model} onInput=${(e) => setS({ ...s, llm_model: e.target.value })} />
+      <div class="row"><button class="primary" onClick=${save}>Lưu & kiểm tra</button><button onClick=${onClose}>Đóng</button></div>`}
+    <${Busy} ...${act} />
+  </div></div>`;
+}
+
+function TopBar({ children }) {
+  const [open, setOpen] = useState(false);
+  return html`<header class="top">${children}<div style=${{ flex: 1 }}></div>
+    <button onClick=${() => setOpen(true)} title="Cài đặt">⚙︎ Cài đặt</button>
+    ${open && html`<${SettingsDialog} onClose=${() => setOpen(false)} />`}</header>`;
+}
+
+/* ---------------- home ---------------- */
+function DropZone() {
+  const [over, setOver] = useState(false);
+  const act = useAction();
+  const input = useRef(null);
+  const upload = (file) => file && act.run(`Đang tải lên ${file.name}…`, async () => {
+    const fd = new FormData(); fd.append("file", file);
+    const r = await api("/api/upload", { method: "POST", body: fd });
+    location.hash = "#/p/" + r.project_id;
+  });
+  return html`<div class=${"drop" + (over ? " over" : "")}
+      onDragOver=${(e) => { e.preventDefault(); setOver(true); }} onDragLeave=${() => setOver(false)}
+      onDrop=${(e) => { e.preventDefault(); setOver(false); upload(e.dataTransfer.files[0]); }}
+      onClick=${() => input.current.click()}>
+    <input ref=${input} type="file" accept="image/*,.heic" hidden onChange=${(e) => upload(e.target.files[0])} />
+    <b>Kéo thả ảnh chụp bản vẽ vào đây</b> hoặc bấm để chọn file
+    <div class="muted small">Nhân vật, mind map, sơ đồ khối — AI tự nhận diện</div>
+    <${Busy} ...${act} />
+  </div>`;
+}
+
+function Home() {
+  const [projects, setProjects] = useState(null);
+  useEffect(() => { api("/api/projects").then(setProjects); }, []);
+  return html`
+    <${TopBar}><h1>Sketch-to-2D Studio</h1><span class="sub">Qwen + ComfyUI trên Colab · bản MVP</span></${TopBar}>
+    <div class="wrap">
+      <${DropZone} />
+      ${projects === null ? html`<p class="muted">Đang tải…</p>` :
+        projects.length === 0 ? html`<div class="empty">Chưa có dự án nào.</div>` :
+        html`<div class="grid">${projects.map((p) => html`
+          <a class="card" key=${p.id} href=${"#/p/" + p.id}>
+            <img src=${"/storage/" + p.sketch_raw} alt="" loading="lazy" />
+            <div class="meta">
+              <div><b>${p.title}</b></div>
+              <div><span class="badge">${TYPE_VI[p.project_type] || "Chưa phân tích"}</span><span class="muted">${fmtTime(p.created_at)}</span></div>
+            </div>
+          </a>`)}</div>`}
+    </div>`;
+}
+
+/* ---------------- project ---------------- */
+function ProjectPage({ pid }) {
+  const [data, setData] = useState(null);
+  const [err, setErr] = useState(null);
+  const [tab, setTab] = useState(null);
+  const load = useCallback(() => api("/api/projects/" + pid).then(setData).catch((e) => setErr(e.message)), [pid]);
+  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (data?.project.status !== "analyzing") return;
+    const t = setTimeout(load, 3000);
+    return () => clearTimeout(t);
+  }, [data]);
+  if (err) return html`<div class="wrap"><p>Lỗi: ${err}</p><a href="#/">← Về danh sách</a></div>`;
+  if (!data) return html`<div class="wrap muted">Đang tải…</div>`;
+  const { project, graph, profile } = data;
+  const tabs = [graph && "mindmap", (profile || data.assets.some((a) => a.type !== "icon")) && "character"].filter(Boolean);
+  const active = tab && tabs.includes(tab) ? tab : tabs[0];
+  return html`
+    <${TopBar}>
+      <a href="#/">← Dự án</a>
+      <h1>${(graph && graph.title_vi) || project.title}</h1>
+      <span class="badge">${TYPE_VI[project.project_type] || "Chưa phân tích"}</span>
+      <span class="sub">${project.id}</span>
+      <div style=${{ flex: 1 }}></div>
+      ${tabs.length > 1 && html`<div class="tabs">${tabs.map((t) => html`
+        <button key=${t} class=${t === active ? "on" : ""} onClick=${() => setTab(t)}>${t === "mindmap" ? "Sơ đồ" : "Nhân vật"}</button>`)}</div>`}
+    </${TopBar}>
+    ${!active || project.status === "analyzing" ? html`<${Pending} project=${project} reload=${load} />` :
+      active === "mindmap" ? html`<${ReactFlowProvider}><${MindMapEditor} key=${data.graph_version} data=${data} reload=${load} goCharacter=${() => setTab("character")} /></${ReactFlowProvider}>` :
+      html`<${CharacterPanel} data=${data} reload=${load} />`}`;
+}
+
+const CATEGORIES = [
+  ["mindmap_or_flowchart_diagram", "Đây là mind map / sơ đồ"],
+  ["character_or_object_sketch", "Đây là nhân vật / vật thể"],
+  ["character_concept_mindmap", "Mind map ý tưởng nhân vật"],
+];
+
+function Pending({ project, reload }) {
+  const act = useAction();
+  const analyze = (category) => act.run("Đang gửi…", async () => { await post(`/api/projects/${project.id}/analyze`, { category }); reload(); });
+  const analyzing = project.status === "analyzing";
+  return html`<div class="wrap"><div class="empty">
+    ${analyzing ? html`<p><b>⏳ AI đang đọc bản vẽ…</b><br/><span class="small">Qwen trên Colab thường mất 20–90 giây (lần đầu lâu hơn vì nạp model).</span></p>` :
+      project.status === "error" ? html`<p class="err"><b>Phân tích lỗi:</b> ${project.status_detail}</p>` :
+      html`<p>Ảnh đã được làm sạch. Chọn cách phân tích:</p>`}
+    ${!analyzing && html`<div class="row" style=${{ justifyContent: "center" }}>
+      <button class="primary" onClick=${() => analyze(null)}>AI tự nhận diện</button>
+      ${CATEGORIES.map(([c, l]) => html`<button key=${c} onClick=${() => analyze(c)}>${l}</button>`)}
+    </div>`}
+    <${Busy} ...${act} />
+    <div class="sketches" style=${{ marginTop: 16 }}>
+      <img src=${"/storage/" + project.sketch_raw} /><img src=${"/storage/" + project.sketch_clean} /><img src=${"/storage/" + project.sketch_control} />
+    </div></div></div>`;
+}
+
+/* ---------------- mind map: shapes ---------------- */
+const BASE_SIZE = { circle: [130, 130], triangle: [170, 150], diamond: [170, 120], rectangle: [170, 80], pill: [170, 64], cloud: [190, 110] };
+const sizeFor = (shape, text) => {
+  const [w, h] = BASE_SIZE[shape] || BASE_SIZE.rectangle;
+  const k = 1 + Math.max(0, (text || "").length - 18) / 45;
+  if (shape === "circle") return [w * k, w * k];
+  const kw = Math.min(k, 1.6); // grow wider first, then taller
+  return [w * kw, h * Math.max(1, k / kw)];
+};
+// polygon outlines in [-1,1] box coords (used for drawing and for edge/border intersection)
+const POLY = {
+  triangle: [[0, -1], [1, 1], [-1, 1]],
+  diamond: [[0, -1], [1, 0], [0, 1], [-1, 0]],
+  rectangle: [[-1, -1], [1, -1], [1, 1], [-1, 1]],
+};
+const ROUND = new Set(["circle", "cloud", "pill"]);
+
+function ShapeSvg({ shape, w, h, fill }) {
+  const sw = 2, stroke = "#3a3a3c";
+  if (shape === "circle") return html`<svg width=${w} height=${h}><ellipse cx=${w / 2} cy=${h / 2} rx=${w / 2 - 1} ry=${h / 2 - 1} fill=${fill} stroke=${stroke} stroke-width=${sw} /></svg>`;
+  if (shape === "pill") return html`<svg width=${w} height=${h}><rect x="1" y="1" width=${w - 2} height=${h - 2} rx=${(h - 2) / 2} fill=${fill} stroke=${stroke} stroke-width=${sw} /></svg>`;
+  if (shape === "cloud") {
+    const d = `M ${w * .25} ${h * .85} C ${w * .02} ${h * .85} ${w * .02} ${h * .45} ${w * .22} ${h * .45} C ${w * .2} ${h * .1} ${w * .55} ${h * .02} ${w * .62} ${h * .3}
+      C ${w * .75} ${h * .1} ${w * .98} ${h * .25} ${w * .88} ${h * .5} C ${w * 1.02} ${h * .6} ${w * .95} ${h * .9} ${w * .78} ${h * .85} Z`;
+    return html`<svg width=${w} height=${h}><path d=${d} fill=${fill} stroke=${stroke} stroke-width=${sw} stroke-linejoin="round" /></svg>`;
+  }
+  const pts = (POLY[shape] || POLY.rectangle).map(([x, y]) => `${(x + 1) / 2 * (w - 2) + 1},${(y + 1) / 2 * (h - 2) + 1}`).join(" L ");
+  return html`<svg width=${w} height=${h}><path d=${"M " + pts + " Z"} fill=${fill} stroke=${stroke} stroke-width=${sw} stroke-linejoin="round" /></svg>`;
+}
+
+function ShapeNode({ data }) {
+  const [w, h] = sizeFor(data.shape_type, data.text_content_vi);
+  return html`<div class=${"shape " + data.shape_type} style=${{ width: w, height: h }}>
+    <${ShapeSvg} shape=${data.shape_type} w=${w} h=${h} fill=${data.suggested_color_hex || "#fff"} />
+    <div class="label">${data.text_content_vi}</div>
+    ${data.icon_url && html`<img class="icon" src=${data.icon_url} alt="" />`}
+    <${Handle} type="target" position=${Position.Top} className="tgt" style=${{ left: "50%", top: "50%" }} />
+    <${Handle} type="source" position=${Position.Right} className="src" />
+  </div>`;
+}
+
+// Point where the line from node center towards `other` leaves the node outline.
+function borderPoint(node, other) {
+  const w = node.measured.width, h = node.measured.height;
+  const cx = node.internals.positionAbsolute.x + w / 2, cy = node.internals.positionAbsolute.y + h / 2;
+  const ox = other.internals.positionAbsolute.x + other.measured.width / 2, oy = other.internals.positionAbsolute.y + other.measured.height / 2;
+  const dx = (ox - cx) / (w / 2), dy = (oy - cy) / (h / 2); // direction in unit-box coords
+  if (!dx && !dy) return [cx, cy];
+  let t;
+  if (ROUND.has(node.data.shape_type)) t = 1 / Math.hypot(dx, dy);
+  else {
+    const poly = POLY[node.data.shape_type] || POLY.rectangle;
+    t = Infinity;
+    for (let i = 0; i < poly.length; i++) {
+      const [ax, ay] = poly[i], [bx, by] = poly[(i + 1) % poly.length];
+      const ex = bx - ax, ey = by - ay, den = dx * ey - dy * ex;
+      if (Math.abs(den) < 1e-9) continue;
+      const s = (ax * ey - ay * ex) / den, u = (ax * dy - ay * dx) / den;
+      if (s > 0 && u >= -1e-6 && u <= 1 + 1e-6) t = Math.min(t, s);
+    }
+    if (!isFinite(t)) t = 1;
+  }
+  return [cx + dx * t * w / 2, cy + dy * t * h / 2];
+}
+
+function FloatingEdge({ id, source, target, data, markerEnd, markerStart, style, selected }) {
+  const s = useInternalNode(source), t = useInternalNode(target);
+  if (!s || !t || !s.measured?.width || !t.measured?.width) return null;
+  const [sx, sy] = borderPoint(s, t), [tx, ty] = borderPoint(t, s);
+  const [path, lx, ly] = getStraightPath({ sourceX: sx, sourceY: sy, targetX: tx, targetY: ty });
+  return html`
+    <${BaseEdge} id=${id} path=${path} markerEnd=${markerEnd} markerStart=${markerStart}
+      style=${{ ...style, stroke: selected ? "#3b5bdb" : "#3a3a3c", strokeWidth: selected ? 2.5 : 1.8 }} />
+    ${data?.label && html`<${EdgeLabelRenderer}>
+      <div class="edge-label nodrag nopan" style=${{ transform: `translate(-50%,-50%) translate(${lx}px,${ly}px)` }}>${data.label}</div>
+    </${EdgeLabelRenderer}>`}`;
+}
+
+const nodeTypes = { shape: ShapeNode };
+const edgeTypes = { floating: FloatingEdge };
+const SCALE = { landscape: [1.6, 1.0], portrait: [1.0, 1.5], square: [1.3, 1.3] };
+
+const arrowProps = (type) => {
+  const m = { type: MarkerType.ArrowClosed, width: 18, height: 18, color: "#3a3a3c" };
+  return {
+    markerEnd: type === "undirected_line" ? undefined : m,
+    markerStart: type === "bidirectional" ? m : undefined,
+    style: type === "dashed" ? { strokeDasharray: "6 5" } : {},
+  };
+};
+const toFlowEdge = (e) => ({
+  id: e.edge_id, source: e.source_node_id, target: e.target_node_id, type: "floating",
+  data: { label: e.relation_label_vi, arrow_type: e.arrow_type }, ...arrowProps(e.arrow_type),
+});
+
+function graphToFlow(graph, aspect) {
+  const [sx, sy] = SCALE[aspect] || SCALE.square;
+  const nodes = graph.nodes.map((n) => {
+    const [w, h] = sizeFor(n.shape_type, n.text_content_vi);
+    return { id: n.node_id, type: "shape", position: { x: n.x_norm * sx - w / 2, y: n.y_norm * sy - h / 2 }, data: { ...n } };
+  });
+  return { nodes, edges: graph.edges.map(toFlowEdge) };
+}
+
+function flowToGraph(base, nodes, edges) {
+  // Fit node centers back into the 0..1000 paper box (keeps aspect).
+  const centers = nodes.map((n) => {
+    const [w, h] = sizeFor(n.data.shape_type, n.data.text_content_vi);
+    return [n.position.x + w / 2, n.position.y + h / 2];
+  });
+  const xs = centers.map((c) => c[0]), ys = centers.map((c) => c[1]);
+  const minX = Math.min(...xs), minY = Math.min(...ys);
+  const span = Math.max(Math.max(...xs) - minX, Math.max(...ys) - minY, 1);
+  const k = Math.min(1, 900 / span);
+  const clamp = (v) => Math.max(0, Math.min(1000, Math.round(v)));
+  return {
+    ...base,
+    nodes: nodes.map((n, i) => ({
+      ...n.data, node_id: n.id,
+      x_norm: clamp(50 + (centers[i][0] - minX) * k), y_norm: clamp(50 + (centers[i][1] - minY) * k),
+    })),
+    edges: edges.map((e) => ({
+      edge_id: e.id, source_node_id: e.source, target_node_id: e.target,
+      relation_label_vi: e.data?.label || null, arrow_type: e.data?.arrow_type || "directed",
+    })),
+  };
+}
+
+function autoLayout(nodes, edges) {
+  const g = new dagre.graphlib.Graph();
+  g.setGraph({ rankdir: "TB", nodesep: 50, ranksep: 80 });
+  g.setDefaultEdgeLabel(() => ({}));
+  nodes.forEach((n) => { const [w, h] = sizeFor(n.data.shape_type, n.data.text_content_vi); g.setNode(n.id, { width: w, height: h }); });
+  edges.forEach((e) => g.setEdge(e.source, e.target));
+  dagre.layout(g);
+  return nodes.map((n) => { const p = g.node(n.id); return { ...n, position: { x: p.x - p.width / 2, y: p.y - p.height / 2 } }; });
+}
+
+const download = (href, name) => { const a = document.createElement("a"); a.href = href; a.download = name; a.click(); };
+
+/* ---------------- mind map: editor ---------------- */
+function MindMapEditor({ data, reload, goCharacter }) {
+  const initial = useMemo(() => graphToFlow(data.graph, data.project.aspect), [data]);
+  const [nodes, setNodes, onNodesChange] = useNodesState(initial.nodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(initial.edges);
+  const [dirty, setDirty] = useState(false);
+  const [status, setStatus] = useState(`v${data.graph_version}`);
+  const paperPos = useRef(null);
+  const rf = useReactFlow();
+  const sel = nodes.find((n) => n.selected), selEdge = edges.find((e) => e.selected);
+
+  const touch = () => setDirty(true);
+  const patchNode = (id, patch) => { setNodes((ns) => ns.map((n) => n.id === id ? { ...n, data: { ...n.data, ...patch } } : n)); touch(); };
+  const patchEdge = (id, patch) => {
+    setEdges((es) => es.map((e) => {
+      if (e.id !== id) return e;
+      const d = { ...e.data, ...patch };
+      return { ...e, data: d, ...arrowProps(d.arrow_type) };
+    }));
+    touch();
+  };
+  const nextId = (prefix, list) => { let i = list.length + 1; while (list.some((x) => x.id === `${prefix}_${i}`)) i++; return `${prefix}_${i}`; };
+
+  const addNode = (parent) => {
+    const id = nextId("node", nodes);
+    const pos = parent ? { x: parent.position.x + 60, y: parent.position.y + 180 } : rf.screenToFlowPosition({ x: innerWidth / 2 - 150, y: innerHeight / 2 });
+    const node = { id, type: "shape", position: pos, selected: true,
+      data: { node_id: id, shape_type: "rectangle", text_content_vi: "Ý tưởng mới", x_norm: 500, y_norm: 500, suggested_color_hex: "#E7F5FF", icon_prompt_en: null, icon_url: null } };
+    setNodes((ns) => [...ns.map((n) => ({ ...n, selected: false })), node]);
+    if (parent) setEdges((es) => [...es, toFlowEdge({ edge_id: nextId("edge", es), source_node_id: parent.id, target_node_id: id, arrow_type: "directed" })]);
+    touch();
+  };
+  const onConnect = useCallback((c) => {
+    setEdges((es) => addEdge({ ...toFlowEdge({ edge_id: nextId("edge", es), source_node_id: c.source, target_node_id: c.target, arrow_type: "directed" }) }, es));
+    setDirty(true);
+  }, []);
+
+  const save = async () => {
+    setStatus("Đang lưu…");
+    try {
+      const r = await api(`/api/projects/${data.project.id}/mindmap`, {
+        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(flowToGraph(data.graph, nodes, edges)),
+      });
+      setDirty(false); setStatus(`Đã lưu v${r.version}`);
+      reload();
+    } catch (e) { setStatus("Lỗi lưu: " + e.message); }
+  };
+  useEffect(() => {
+    const f = (e) => { if ((e.metaKey || e.ctrlKey) && e.key === "s") { e.preventDefault(); save(); } };
+    addEventListener("keydown", f); return () => removeEventListener("keydown", f);
+  });
+
+  const toggleLayout = () => {
+    if (paperPos.current) {
+      const saved = paperPos.current; paperPos.current = null;
+      setNodes((ns) => ns.map((n) => saved[n.id] ? { ...n, position: saved[n.id] } : n));
+    } else {
+      paperPos.current = Object.fromEntries(nodes.map((n) => [n.id, n.position]));
+      setNodes(autoLayout(nodes, edges));
+    }
+    touch();
+    setTimeout(() => rf.fitView({ padding: 0.2, duration: 300 }), 50);
+  };
+
+  const exportImage = async (kind) => {
+    const bounds = getNodesBounds(nodes);
+    const W = Math.round(bounds.width + 240), H = Math.round(bounds.height + 240);
+    const vp = getViewportForBounds(bounds, W, H, 0.5, 2, 0.1);
+    const el = document.querySelector(".react-flow__viewport");
+    const opts = { backgroundColor: "#ffffff", width: W, height: H, style: { width: W + "px", height: H + "px", transform: `translate(${vp.x}px, ${vp.y}px) scale(${vp.zoom})` } };
+    const url = await (kind === "png" ? toPng(el, { ...opts, pixelRatio: 2 }) : toSvg(el, opts));
+    download(url, `${data.project.id}.${kind}`);
+  };
+  const exportJson = () => {
+    const blob = new Blob([JSON.stringify(flowToGraph(data.graph, nodes, edges), null, 2)], { type: "application/json" });
+    download(URL.createObjectURL(blob), `${data.project.id}.json`);
+  };
+  const copyMermaid = async () => {
+    await navigator.clipboard.writeText(data.graph.mermaid_code || "");
+    setStatus(dirty ? "Đã copy Mermaid (bản đã lưu — lưu trước để cập nhật)" : "Đã copy Mermaid");
+  };
+
+  return html`<div class="editor">
+    <div class="canvas">
+      <div class="toolbar">
+        <button class="primary" onClick=${save}>Lưu${dirty ? " *" : ""}</button>
+        <button onClick=${() => addNode(null)}>+ Khối</button>
+        <button onClick=${toggleLayout}>${paperPos.current ? "Bố cục như trên giấy" : "Tự động căn bố cục"}</button>
+        <button onClick=${() => exportImage("png")}>PNG</button>
+        <button onClick=${() => exportImage("svg")}>SVG</button>
+        <button onClick=${exportJson}>JSON</button>
+        <button onClick=${copyMermaid}>Mermaid</button>
+        <span class="status">${status}</span>
+      </div>
+      <${ReactFlow} nodes=${nodes} edges=${edges} nodeTypes=${nodeTypes} edgeTypes=${edgeTypes}
+        onNodesChange=${(c) => { onNodesChange(c); if (c.some((x) => x.type === "position" && x.dragging === false || x.type === "remove")) touch(); }}
+        onEdgesChange=${(c) => { onEdgesChange(c); if (c.some((x) => x.type === "remove")) touch(); }}
+        onConnect=${onConnect} connectionMode=${ConnectionMode.Loose}
+        onNodeDoubleClick=${() => setTimeout(() => document.getElementById("node-text")?.focus(), 0)}
+        deleteKeyCode=${["Backspace", "Delete"]} fitView fitViewOptions=${{ padding: 0.2 }} minZoom=${0.2}>
+        <${Background} gap=${24} color="#ddd" />
+        <${Controls} showInteractive=${false} />
+        <${MiniMap} pannable zoomable nodeColor=${(n) => n.data.suggested_color_hex || "#ddd"} />
+      </${ReactFlow}>
+    </div>
+    <aside class="side">
+      ${sel ? html`
+        <h3>Khối ${sel.id}</h3>
+        <label>Nội dung</label>
+        <textarea id="node-text" rows="3" value=${sel.data.text_content_vi} onInput=${(e) => patchNode(sel.id, { text_content_vi: e.target.value })}></textarea>
+        <label>Hình dạng</label>
+        <select value=${sel.data.shape_type} onChange=${(e) => patchNode(sel.id, { shape_type: e.target.value })}>
+          ${[["circle", "Tròn"], ["triangle", "Tam giác"], ["rectangle", "Chữ nhật"], ["diamond", "Thoi"], ["pill", "Viên thuốc"], ["cloud", "Mây"]]
+            .map(([v, l]) => html`<option key=${v} value=${v}>${l}</option>`)}
+        </select>
+        <label>Màu</label>
+        <input type="color" value=${sel.data.suggested_color_hex?.length === 7 ? sel.data.suggested_color_hex : "#ffffff"} onInput=${(e) => patchNode(sel.id, { suggested_color_hex: e.target.value.toUpperCase() })} />
+        <label>Prompt icon (EN, cho chế độ minh hoạ)</label>
+        <input type="text" value=${sel.data.icon_prompt_en || ""} onInput=${(e) => patchNode(sel.id, { icon_prompt_en: e.target.value || null })} />
+        <div class="row">
+          <button onClick=${() => addNode(sel)}>+ Nhánh con</button>
+          ${sel.data.icon_url && html`<button onClick=${() => patchNode(sel.id, { icon_url: null })}>Bỏ icon</button>`}
+          <button class="danger" onClick=${() => { setNodes((ns) => ns.filter((n) => n.id !== sel.id)); setEdges((es) => es.filter((e) => e.source !== sel.id && e.target !== sel.id)); touch(); }}>Xoá</button>
+        </div>` :
+      selEdge ? html`
+        <h3>Đường nối ${selEdge.id}</h3>
+        <label>Chữ trên mũi tên</label>
+        <input type="text" value=${selEdge.data?.label || ""} onInput=${(e) => patchEdge(selEdge.id, { label: e.target.value || null })} />
+        <label>Kiểu</label>
+        <select value=${selEdge.data?.arrow_type || "directed"} onChange=${(e) => patchEdge(selEdge.id, { arrow_type: e.target.value })}>
+          <option value="directed">Mũi tên →</option><option value="bidirectional">Hai chiều ↔</option>
+          <option value="undirected_line">Đường thẳng —</option><option value="dashed">Nét đứt ⇢</option>
+        </select>
+        <div class="row"><button class="danger" onClick=${() => { setEdges((es) => es.filter((e) => e.id !== selEdge.id)); touch(); }}>Xoá</button></div>` :
+      html`<h3>Hướng dẫn</h3>
+        <p class="muted">Kéo để di chuyển khối. Bấm đúp để sửa chữ. Kéo chấm xanh bên phải khối sang khối khác để nối. Delete để xoá. ⌘S để lưu.</p>`}
+      <${AiPanel} data=${data} reload=${reload} goCharacter=${goCharacter} beforeEdit=${async () => {
+        if (!dirty) return;
+        await api(`/api/projects/${data.project.id}/mindmap`, {
+          method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(flowToGraph(data.graph, nodes, edges)),
+        });
+        setDirty(false);
+      }} />
+      <h3>Ảnh gốc</h3>
+      <img src=${"/storage/" + data.project.sketch_raw} style=${{ width: "100%", borderRadius: 6, border: "1px solid var(--line)" }} />
+    </aside>
+  </div>`;
+}
+
+function AiPanel({ data, reload, beforeEdit, goCharacter }) {
+  const pid = data.project.id;
+  const [text, setText] = useState("");
+  const act = useAction();
+  const edit = (instruction) => act.run("AI đang sửa sơ đồ…", async () => {
+    await beforeEdit();
+    await post(`/api/projects/${pid}/mindmap/edit`, { instruction_vi: instruction });
+    setText(""); reload();
+  });
+  const icons = () => act.run("Đang sinh icon (AI viết prompt rồi Colab vẽ)…", async () => {
+    await beforeEdit();
+    const job = await post(`/api/projects/${pid}/icons`);
+    for (let i = 0; i < 60; i++) {  // icons take ~10 s on a T4
+      await new Promise((r) => setTimeout(r, 3000));
+      if ((await post(`/api/jobs/${job.job_id}/refresh`)).status !== "running") break;
+    }
+    reload();
+  });
+  const concept = () => act.run("AI đang tổng hợp nhân vật từ các nhánh…", async () => {
+    await beforeEdit(); await post(`/api/projects/${pid}/concept`); goCharacter(); reload();
+  });
+  const suggestions = data.graph.ai_expansion_suggestions_vi || [];
+  return html`
+    <h3>Gợi ý từ AI</h3>
+    ${suggestions.length ? html`<div class="chips-btn">${suggestions.map((s, i) => html`
+      <button key=${i} disabled=${!!act.busy} onClick=${() => edit(s)} title="Bấm để AI áp dụng">${s}</button>`)}</div>`
+      : html`<p class="muted">Không có.</p>`}
+    <label>Yêu cầu AI chỉnh sơ đồ</label>
+    <textarea rows="3" placeholder="VD: thêm 3 nhánh con cho khối Mục tiêu, đổi màu theo chủ đề" value=${text}
+      onInput=${(e) => setText(e.target.value)}
+      onKeyDown=${(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && text.trim()) edit(text); }}></textarea>
+    <div class="row">
+      <button class="primary" disabled=${!text.trim() || !!act.busy} onClick=${() => edit(text)}>Gửi</button>
+      <button disabled=${!!act.busy} onClick=${icons}>🎨 Sinh icon minh hoạ</button>
+      <button disabled=${!!act.busy} onClick=${concept}>🧑‍🎨 Tạo nhân vật từ sơ đồ</button>
+    </div>
+    <${Busy} ...${act} />`;
+}
+
+const STYLE_VI = { anime: "Anime", chibi: "Chibi", flat_vector: "Flat vector", cartoon: "Cartoon", watercolor: "Màu nước" };
+const FIDELITY_VI = [["", "Theo AI đề xuất"], ["high_fidelity", "Bám sát nét vẽ"], ["balanced", "Cân bằng"], ["creative_fix", "Sáng tạo (nét nguệch ngoạc)"]];
+
+function GenerateForm({ data, reload }) {
+  const [f, setF] = useState({ style: "anime", fidelity: "", batch_size: 4, extra_vi: "", transparent: true });
+  const act = useAction();
+  const go = () => act.run("Đang gửi lên Colab…", async () => {
+    await post(`/api/projects/${data.project.id}/generate`, { ...f, fidelity: f.fidelity || null, batch_size: +f.batch_size });
+    reload();
+  });
+  const sketch = data.project.input_category === "character_or_object_sketch";
+  return html`<div class="panel">
+    <h2>Tạo nhân vật 2D</h2>
+    <div class="form-grid">
+      <label>Phong cách<select value=${f.style} onChange=${(e) => setF({ ...f, style: e.target.value })}>
+        ${Object.entries(STYLE_VI).map(([v, l]) => html`<option key=${v} value=${v}>${l}</option>`)}</select></label>
+      ${sketch && html`<label>Bám nét vẽ<select value=${f.fidelity} onChange=${(e) => setF({ ...f, fidelity: e.target.value })}>
+        ${FIDELITY_VI.map(([v, l]) => html`<option key=${v} value=${v}>${l}</option>`)}</select></label>`}
+      <label>Số ảnh<select value=${f.batch_size} onChange=${(e) => setF({ ...f, batch_size: e.target.value })}>
+        ${[1, 2, 4].map((n) => html`<option key=${n} value=${n}>${n}</option>`)}</select></label>
+    </div>
+    <label class="block">Mô tả thêm (tuỳ chọn, tiếng Việt)
+      <input type="text" placeholder="VD: đang cười, cầm cờ lê phát sáng" value=${f.extra_vi} onInput=${(e) => setF({ ...f, extra_vi: e.target.value })} /></label>
+    <label class="check"><input type="checkbox" checked=${f.transparent} onChange=${(e) => setF({ ...f, transparent: e.target.checked })} />
+      Nền trong suốt (tự xoá nền, xuất PNG)</label>
+    <div class="row"><button class="primary" disabled=${!!act.busy} onClick=${go}>Tạo nhân vật</button></div>
+    <${Busy} ...${act} />
+  </div>`;
+}
+
+function ExpressionPack({ asset, reload, faceLock }) {
+  const [list, setList] = useState([]);
+  const [picked, setPicked] = useState(new Set());
+  const [framing, setFraming] = useState("bust");
+  const [custom, setCustom] = useState("");
+  const act = useAction();
+  useEffect(() => {
+    api("/api/expressions").then((l) => { setList(l); setPicked(new Set(l.slice(0, 8).map((e) => e.key))); });
+  }, []);
+  const toggle = (k) => setPicked((p) => { const n = new Set(p); n.has(k) ? n.delete(k) : n.add(k); return n; });
+  const customList = custom.split(",").map((t) => t.trim()).filter(Boolean);
+  const total = picked.size + customList.length;
+  const go = () => act.run(customList.length ? "AI đang dịch cảm xúc thêm, rồi gửi lên Colab…" : "Đang gửi lên Colab…", async () => {
+    await post(`/api/assets/${asset.id}/expressions`, { emotions: [...picked], custom_vi: customList, framing, face_lock: faceLock });
+    setCustom(""); reload();
+  });
+  return html`
+    <h3 class="sub-h">😀 Bộ biểu cảm tự động</h3>
+    <div class="emo-grid">${list.map((e) => html`
+      <label key=${e.key} class=${"emo" + (picked.has(e.key) ? " on" : "")}>
+        <input type="checkbox" checked=${picked.has(e.key)} onChange=${() => toggle(e.key)} />${e.label_vi}</label>`)}</div>
+    <label>Cảm xúc khác (tuỳ chọn, cách nhau dấu phẩy)</label>
+    <input type="text" placeholder="VD: say mê, ghen tị" value=${custom} onInput=${(e) => setCustom(e.target.value)} />
+    <div class="row">
+      <label class="check"><input type="radio" name="framing" checked=${framing === "bust"} onChange=${() => setFraming("bust")} /> Chân dung (sticker)</label>
+      <label class="check"><input type="radio" name="framing" checked=${framing === "full"} onChange=${() => setFraming("full")} /> Toàn thân</label>
+    </div>
+    <div class="row"><button class="primary" disabled=${!total || !!act.busy} onClick=${go}>Tạo ${total} biểu cảm</button></div>
+    <${Busy} ...${act} />`;
+}
+
+function FaceLock({ value, onChange }) {
+  const on = value !== 0;
+  return html`<div class="facelock">
+    <label class="check"><input type="checkbox" checked=${on} onChange=${(e) => onChange(e.target.checked ? 0.65 : 0)} />
+      🔒 Khoá gương mặt (IP-Adapter)</label>
+    ${on && html`<label>Độ khoá: ${value.toFixed(2)} <span class="muted small">(cao = giống mặt gốc hơn nhưng biểu cảm khó đổi)</span></label>
+      <input type="range" min="0.3" max="1" step="0.05" value=${value} onInput=${(e) => onChange(+e.target.value)} />`}
+  </div>`;
+}
+
+function AssetActions({ asset, profile, reload }) {
+  const [text, setText] = useState("");
+  const [strength, setStrength] = useState(0.55);
+  const [faceLock, setFaceLock] = useState(0.65);
+  const act = useAction();
+  const vary = (body) => act.run("Đang gửi lên Colab…", async () => {
+    await post(`/api/assets/${asset.id}/variation`, { strength, face_lock: faceLock, ...body }); setText(""); reload();
+  });
+  const sticker = () => act.run("Đang tách nền trên Mac…", async () => { await post(`/api/assets/${asset.id}/sticker`); reload(); });
+  return html`<div class="panel sel-panel">
+    <h2>Ảnh đang chọn <span class="muted small">${asset.id}</span></h2>
+    <img src=${"/storage/" + asset.path} class="sel-thumb" />
+    <${FaceLock} value=${faceLock} onChange=${setFaceLock} />
+    ${profile?.contextual_suggestions?.length > 0 && html`<label>Biến thể gợi ý</label>
+      <div class="chips-btn">${profile.contextual_suggestions.map((s, i) => html`
+        <button key=${i} disabled=${!!act.busy} title=${s.prompt_delta_en}
+          onClick=${() => vary({ prompt_delta_en: s.prompt_delta_en, keep_pose: s.category !== "pose" })}>${s.label_vi}</button>`)}</div>`}
+    <label>Hoặc nhắn yêu cầu</label>
+    <input type="text" placeholder="VD: cho nhân vật cười to, đội mũ len" value=${text}
+      onInput=${(e) => setText(e.target.value)} onKeyDown=${(e) => { if (e.key === "Enter" && text.trim()) vary({ request_vi: text }); }} />
+    <label>Mức thay đổi: ${strength.toFixed(2)} <span class="muted small">(gợi ý dùng mức này; ô nhắn để AI tự chọn)</span></label>
+    <input type="range" min="0.3" max="0.8" step="0.05" value=${strength} onInput=${(e) => setStrength(+e.target.value)} />
+    <div class="row">
+      <button class="primary" disabled=${!text.trim() || !!act.busy} onClick=${() => vary({ request_vi: text })}>Tạo biến thể</button>
+      <button disabled=${!!act.busy} onClick=${sticker}>✂️ Tách nền</button>
+      <a class="btn" href=${"/storage/" + asset.path} download>⤓ Tải</a>
+    </div>
+    <${Busy} ...${act} />
+    <${ExpressionPack} asset=${asset} reload=${reload} faceLock=${faceLock} />
+  </div>`;
+}
+
+const KIND_VI = { character: "Nhân vật", variation: "Biến thể", expressions: "Bộ biểu cảm" };
+
+/* ---------------- character ---------------- */
+function CharacterPanel({ data, reload }) {
+  const { project, profile, jobs } = data;
+  const [zoom, setZoom] = useState(null);
+  const [copied, setCopied] = useState(null);
+  const [selId, setSelId] = useState(null);
+  const running = jobs.filter((j) => j.status === "running" || j.status === "collecting");
+
+  useEffect(() => {
+    if (!running.length) return;
+    const t = setInterval(async () => {
+      await Promise.all(running.map((j) => api(`/api/jobs/${j.id}/refresh`, { method: "POST" }).catch(() => null)));
+      reload();
+    }, 5000);
+    return () => clearInterval(t);
+  }, [running.map((j) => j.id).join()]);
+
+  const assets = data.assets.filter((a) => a.type !== "icon");
+  const byJob = jobs.filter((j) => j.kind !== "icons").map((j) => ({ job: j, items: assets.filter((a) => a.job_id === j.id) }));
+  const selected = assets.find((a) => a.id === selId);
+  const copy = (text) => { navigator.clipboard.writeText(text); setCopied(text); setTimeout(() => setCopied(null), 1200); };
+
+  return html`<div class="wrap"><div class="cols">
+    <div>
+      <div class="panel">
+        <h2>Bản phác thảo</h2>
+        <div class="sketches">
+          ${[["sketch_raw", "Gốc"], ["sketch_clean", "Làm sạch"], ["sketch_control", "ControlNet"]].map(([k, l]) => html`
+            <figure key=${k} style=${{ margin: 0 }}><img src=${"/storage/" + project[k]} onClick=${() => setZoom("/storage/" + project[k])} />
+            <figcaption class="muted" style=${{ fontSize: 11.5 }}>${l}</figcaption></figure>`)}
+        </div>
+      </div>
+      ${selected && html`<${AssetActions} key=${selected.id} asset=${selected} profile=${profile} reload=${reload} />`}
+      ${profile && html`<div class="panel">
+        <h2>Character DNA</h2>
+        <div><b>${profile.character_archetype}</b></div>
+        <div class="muted" style=${{ fontSize: 12.5, margin: "4px 0 8px" }}>Độ phức tạp ${profile.sketch_complexity_score}/10 · ${profile.recommended_fidelity_mode}</div>
+        <div class="chips">${profile.immutable_traits_en.map((t, i) => html`<span key=${i}>${t}</span>`)}</div>
+        <p style=${{ margin: "8px 0" }}><span class="muted">Trang phục:</span> ${profile.mutable_outfit_en}</p>
+        <div class="chips">${Object.entries(profile.color_palette).map(([k, v]) => html`<span key=${k}>${k.replace("_color", "").replace("_", " ")}: ${v}</span>`)}</div>
+        <h2 style=${{ marginTop: 14 }}>Gợi ý biến thể</h2>
+        ${profile.contextual_suggestions.map((s, i) => html`<div key=${i} style=${{ marginBottom: 6 }}>
+          <span class="badge">${s.category}</span>${s.label_vi}
+          <div class="muted" style=${{ fontSize: 12 }}>${s.prompt_delta_en}</div></div>`)}
+        <p class="muted" style=${{ fontSize: 12.5 }}>Bấm chọn một ảnh bên phải để tạo biến thể từ gợi ý hoặc nhắn yêu cầu.</p>
+      </div>`}
+    </div>
+    <div>
+      ${profile ? html`<${GenerateForm} data=${data} reload=${reload} />` : html`<div class="empty">Chưa có Character DNA.</div>`}
+      ${byJob.map(({ job, items }) => html`<div class="panel" key=${job.id}>
+        <h2><span class=${"badge " + job.status}>${job.status}</span> ${KIND_VI[job.kind] || job.kind} · <span class="muted">${job.id} · ${fmtTime(job.created_at)}</span>
+          ${job.status === "done" && items.length > 1 && html` <a class="btn small" href=${`/api/jobs/${job.id}/zip`}>⤓ Tải cả bộ (.zip)</a>`}</h2>
+        ${job.error && html`<pre style=${{ whiteSpace: "pre-wrap", color: "var(--err)", fontSize: 12 }}>${job.error}</pre>`}
+        ${job.status === "running" && html`<p class="muted">ComfyUI trên Colab đang vẽ… trang tự cập nhật mỗi 5 giây.</p>`}
+        ${job.status === "collecting" && html`<p class="muted">Đang tải ảnh về và xoá nền…</p>`}
+        <div class="assets">${items.map((a) => html`<div class=${"asset" + (a.id === selId ? " sel" : "")} key=${a.id}>
+          <img src=${"/storage/" + a.path} loading="lazy" onClick=${() => setSelId(a.id)} onDblClick=${() => setZoom("/storage/" + a.path)} title="Bấm để chọn, bấm đúp để phóng to" />
+          <div class="meta">
+            <span><span class="badge">${JSON.parse(a.meta_json || "{}").label_vi || a.type}</span></span>
+            <span>
+              <button onClick=${() => copy(a.id)} title="Copy asset id">${copied === a.id ? "✓" : a.id}</button>
+              <a href=${"/storage/" + a.path} download> ⤓</a>
+            </span>
+          </div></div>`)}</div>
+      </div>`)}
+    </div>
+  </div>
+  ${zoom && html`<div class="lightbox" onClick=${() => setZoom(null)}><img src=${zoom} /></div>`}
+  </div>`;
+}
+
+createRoot(document.getElementById("root")).render(html`<${App} />`);
+</script>
+</body>
+</html>
